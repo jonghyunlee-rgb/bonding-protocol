@@ -5,32 +5,110 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Bonding Written Test</title>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 24px; }
-    h2 { margin: 0 0 14px; }
+    :root{
+      --red:#d5302c;
+      --purple:#6a33c9;
+      --border:#d0d0d0;
+      --muted:#666;
+      --chip:#f2f2f2;
+    }
 
-    .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
-    select, button { padding: 8px 10px; border-radius: 10px; border: 1px solid #d0d0d0; background: white; }
-    button { cursor: pointer; }
-    .hint { opacity: 0.75; margin: 10px 0 14px; }
+    body{
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      margin: 16px;
+    }
 
-    .list { max-width: 1100px; }
-    .step { display: flex; gap: 10px; line-height: 1.9; font-size: 1.05rem; margin: 6px 0; }
-    .num { width: 28px; text-align: right; opacity: 0.85; flex: 0 0 auto; }
-    .text { flex: 1; }
+    h2{
+      margin: 0 0 12px;
+      font-size: clamp(1.15rem, 3.8vw, 1.6rem);
+      line-height: 1.25;
+    }
 
-    .red { color: #d5302c; font-weight: 600; }
-    .purple { color: #6a33c9; font-weight: 600; }
+    /* Controls: responsive */
+    .controls{
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 10px;
+      max-width: 1100px;
+    }
+    @media (min-width: 700px){
+      .controls{
+        grid-template-columns: auto 1fr auto auto auto;
+        gap: 10px;
+      }
+    }
 
-    /* word tokens */
-    .w { padding: 2px 2px; border-radius: 6px; }
-    .hidden {
+    label{ font-weight: 700; }
+
+    select, button{
+      padding: 12px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: white;
+      font-size: 16px; /* prevents iOS zoom on focus */
+      width: 100%;
+    }
+    @media (min-width: 700px){
+      select, button{ width: auto; }
+    }
+
+    button{ cursor: pointer; }
+    button:active{ transform: translateY(1px); }
+
+    .hint{
+      margin: 8px 0 14px;
+      color: var(--muted);
+      font-size: 0.95rem;
+      max-width: 1100px;
+      line-height: 1.4;
+    }
+
+    .list{ max-width: 1100px; }
+
+    /* Steps: responsive layout */
+    .step{
+      display: grid;
+      grid-template-columns: 32px 1fr;
+      gap: 10px;
+      line-height: 1.85;
+      font-size: clamp(1rem, 3.3vw, 1.08rem);
+      margin: 10px 0;
+      align-items: start;
+    }
+    @media (min-width: 700px){
+      .step{ grid-template-columns: 40px 1fr; }
+    }
+
+    .num{
+      text-align: right;
+      opacity: 0.85;
+      font-weight: 700;
+    }
+    .text{
+      word-break: break-word;
+    }
+
+    .red{ color: var(--red); font-weight: 650; }
+    .purple{ color: var(--purple); font-weight: 650; }
+
+    /* word tokens - better tap targets on phone */
+    .w{
+      padding: 3px 3px;
+      border-radius: 8px;
+    }
+    .hidden{
       color: transparent !important;
-      background: #f2f2f2;
+      background: var(--chip);
       border: 1px solid #e0e0e0;
       user-select: none;
+      padding: 3px 6px; /* bigger */
+      margin: 0 1px;   /* breathing room */
     }
-    .hidden::selection { background: transparent; }
-    .space { white-space: pre; }
+    .hidden::selection{ background: transparent; }
+
+    .space{ white-space: pre; }
   </style>
 </head>
 
@@ -39,44 +117,43 @@
   <h2>Steps in 4<sup>th</sup> generation bonding (Optibond FL&reg;)</h2>
 
   <div class="controls">
-    <label for="level"><strong>Difficulty</strong></label>
+    <label for="level">Difficulty</label>
+
     <select id="level">
-      <option value="0">Show (no hiding)</option>
-      <option value="1">LV1: hide 3–4 words</option>
+      <option value="1" selected>LV1: hide 3–4 words</option>
       <option value="2">LV2: hide half the words</option>
       <option value="3">LV3: only first word shows</option>
     </select>
 
-    <button id="generate">Generate</button>
-    <button id="reroll">Reroll Hidden Words</button>
-    <button id="reveal">Reveal All</button>
+    <button id="reroll" type="button">Reroll</button>
+    <button id="reveal" type="button">Reveal All</button>
+    <button id="generate" type="button">Generate</button>
   </div>
 
   <div class="hint">
-    Red = keywords/critical steps. Purple = important
-    (Clicking a hidden word reveals that one word.)
+    Red = keywords/critical steps. Purple = rationale/understanding.
+    Hidden words are tappable (tap to reveal that one word).
   </div>
 
   <div id="app" class="list"></div>
 
 <script>
-/**
- * DATA (steps + coloring)
- * Each step is made of "segments" with a class: red / purple / normal.
- * We then split segments into word tokens so hiding works word-by-word while keeping color.
- */
 const STEPS = [
   { n: 1, segments: [
     { cls: "red", text: "Etch all prepared enamel surfaces with 37.5% phosphoric acid for 20 seconds." },
     { cls: "purple", text: " Etch beyond the finish line." },
   ]},
   { n: 2, segments: [
-    { cls: "red", text: "Rinse thoroughly with a " },
+    { cls: "red", text: "Rinse thoroughly" },
+    { cls: "normal", text: " with a " },
     { cls: "purple", text: "3-way air/water syringe" },
     { cls: "red", text: " for 20 seconds after all traces of the etchant disappear." },
   ]},
   { n: 3, segments: [
-    { cls: "purple", text: "3-way air/water syringe air dry the enamel to check for a frosty, white appearance to indicate proper enamel etching." },
+    { cls: "purple", text: "3-way air/water syringe " },
+    { cls: "red", text: "air dry the enamel to check for a frosty, white appearance " },
+    { cls: "normal", text: "to " },
+    { cls: "purple", text: "indicate proper enamel etching." },
   ]},
   { n: 4, segments: [
     { cls: "red", text: "Etch all non-sclerotic dentin surfaces with 37.5% phosphoric acid for 5-10 seconds and all sclerotic dentin surfaces with 37.5% phosphoric acid for 15-20 seconds." },
@@ -85,20 +162,33 @@ const STEPS = [
     { cls: "red", text: "Rinse thoroughly for 20 seconds after all traces of the etchant disappear." },
   ]},
   { n: 6, segments: [
-    { cls: "red", text: "Aspirate the excess rinse water with high volume evacuation leaving a shiny, non-desiccated layer of dentin." },
+    { cls: "red", text: "Aspirate " },
+    { cls: "purple", text: "the excess rinse " },
+    { cls: "red", text: "water with high volume evacuation leaving a shiny, non-desiccated layer of dentin." },
   ]},
   { n: 7, segments: [
     { cls: "normal", text: "Using a " },
-    { cls: "red", text: "Microbrush\u00AE," },
-    { cls: "red", text: " apply the primer with a gentle circular scrubbing motion in 4-5 overlapping coats for all dentin areas." },
+    { cls: "red", text: "Microbrush\u00AE" },
+    { cls: "red", text: ", apply the primer" },
+    { cls: "normal", text: " with a gentle " },
+    { cls: "red", text: "circular scrubbing motion in 4-5 overlapping coats for all dentin areas." },
   ]},
   { n: 8, segments: [
-    { cls: "red", text: "Aspirate with high volume evacuation for " },
-    { cls: "purple", text: "5 seconds to evaporate the solvent in the primer." },
+    { cls: "red", text: "Aspirate " },
+    { cls: "normal", text: "with " },
+    { cls: "purple", text: "high volume evacuation " },
+    { cls: "normal", text: "for " },
+    { cls: "red", text: "5 seconds " },
+    { cls: "purple", text: "to evaporate the solvent in the primer." },
   ]},
   { n: 9, segments: [
-    { cls: "red", text: "Using a new Microbrush\u00AE, apply the adhesive material" },
-    { cls: "purple", text: " in an even layer over all etched enamel and dentin. Be careful not to use an excessive amount." },
+    { cls: "normal", text: "Using a " },
+    { cls: "red", text: "new Microbrush\u00AE" },
+    { cls: "red", text: ", apply the adhesive " },
+    { cls: "normal", text: "material " },
+    { cls: "purple", text: "in an even layer " },
+    { cls: "red", text: "over all etched enamel and dentin. " },
+    { cls: "purple", text: "Be careful not to use an excessive amount." },
   ]},
   { n: 10, segments: [
     { cls: "normal", text: "Use a light amount of high volume evacuation to thin the adhesive if you so desire. Eliminating this step has no detrimental effect on the outcome because this is a highly filled adhesive." },
@@ -109,33 +199,41 @@ const STEPS = [
   ]},
   { n: 12, segments: [
     { cls: "purple", text: "Incrementally " },
-    { cls: "red", text: "add composite" },
-    { cls: "purple", text: " in layers up to 2 mm thick, sculpting and perfecting anatomy, surface, margins, and contours prior to light curing." },
+    { cls: "red", text: "add composite " },
+    { cls: "purple", text: "in layers up to 2 mm " },
+    { cls: "red", text: "thick," },
+    { cls: "purple", text: " sculpting and perfecting anatomy, surface, margins, and contours prior to light curing." },
   ]},
   { n: 13, segments: [
-    { cls: "red", text: "After curing the last increment, add a layer of glycerine gel" },
-    { cls: "purple", text: " over the surface to prevent any oxygen contact to the surface." },
+    { cls: "red", text: "After curing the last increment, add a layer of glycerine gel over the surface" },
+    { cls: "normal", text: " to prevent any " },
+    { cls: "purple", text: "oxygen contact to the surface." },
   ]},
   { n: 14, segments: [
-    { cls: "purple", text: "Using a curing light, " },
-    { cls: "red", text: "cure through the glycerine gel for 10 seconds per surface" },
-    { cls: "purple", text: " to eliminate the oxygen-inhibited layer and completely harden the restoration\u2019s surface." },
+    { cls: "normal", text: "Using a " },
+    { cls: "red", text: "curing light," },
+    { cls: "normal", text: " cure " },
+    { cls: "purple", text: "through the glycerine gel for " },
+    { cls: "red", text: "10 seconds per surface to eliminate " },
+    { cls: "purple", text: "the oxygen-inhibited layer and completely harden the restoration\u2019s surface." },
   ]},
   { n: 15, segments: [
-    { cls: "red", text: "Contour and polish" },
-    { cls: "purple", text: " as necessary with appropriate rotary and other instruments." },
+    { cls: "red", text: "Contour" },
+    { cls: "normal", text: " and " },
+    { cls: "red", text: "polish" },
+    { cls: "normal", text: " as necessary with " },
+    { cls: "purple", text: "appropriate rotary" },
+    { cls: "normal", text: " and " },
+    { cls: "purple", text: "other instruments." },
   ]},
 ];
 
-// --- helpers: tokenize while keeping class ---
+// tokenize while preserving spaces
 function splitToWordTokens(text) {
-  // Split into tokens including whitespace so we can keep spacing perfect.
-  // Example output: ["Etch", " ", "all", " ", "prepared", ...]
   return text.split(/(\s+)/).filter(t => t.length > 0);
 }
 
 function buildTokensFromSteps(steps) {
-  // Returns: steps -> [{ n, tokens: [{t, cls, isSpace}...] }]
   return steps.map(step => {
     const tokens = [];
     step.segments.forEach(seg => {
@@ -151,7 +249,6 @@ function buildTokensFromSteps(steps) {
 
 function sampleIndices(wordTokenIndices, k) {
   const arr = [...wordTokenIndices];
-  // shuffle
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [arr[i], arr[j]] = [arr[j], arr[i]];
@@ -160,15 +257,11 @@ function sampleIndices(wordTokenIndices, k) {
 }
 
 function hiddenSetForLevel(stepTokens, level) {
-  // We only hide non-space tokens
   const wordIdx = [];
   stepTokens.forEach((tok, idx) => { if (!tok.isSpace) wordIdx.push(idx); });
-
-  if (level === 0) return new Set();
-  if (wordIdx.length <= 1) return new Set(); // keep at least one visible
+  if (wordIdx.length <= 1) return new Set(); // keep at least 1 visible word
 
   if (level === 3) {
-    // show only first visible word token of the entire step
     const hidden = new Set();
     const first = wordIdx[0];
     wordIdx.forEach(i => { if (i !== first) hidden.add(i); });
@@ -176,23 +269,19 @@ function hiddenSetForLevel(stepTokens, level) {
   }
 
   if (level === 1) {
-    // hide 3-4 words, but never hide all
     const maxHide = Math.max(0, wordIdx.length - 1);
     const target = Math.min(maxHide, Math.min(4, Math.max(3, wordIdx.length)));
     return sampleIndices(wordIdx, target);
   }
 
-  if (level === 2) {
-    const maxHide = Math.max(0, wordIdx.length - 1);
-    const target = Math.min(maxHide, Math.floor(wordIdx.length / 2));
-    return sampleIndices(wordIdx, target);
-  }
-
-  return new Set();
+  // level === 2
+  const maxHide = Math.max(0, wordIdx.length - 1);
+  const target = Math.min(maxHide, Math.floor(wordIdx.length / 2));
+  return sampleIndices(wordIdx, target);
 }
 
-// --- rendering ---
-let TOKENIZED = buildTokensFromSteps(STEPS);
+// render
+const TOKENIZED = buildTokensFromSteps(STEPS);
 let hiddenByStep = new Map();
 let revealAll = false;
 
@@ -231,7 +320,7 @@ function render() {
       if (shouldHide) {
         w.classList.add("hidden");
         w.textContent = "█".repeat(Math.max(2, tok.t.length));
-        w.title = "Click to reveal";
+        w.title = "Tap to reveal";
         w.style.cursor = "pointer";
         w.addEventListener("click", () => {
           hiddenSet.delete(idx);
@@ -254,24 +343,18 @@ function generateHidden() {
   revealAll = false;
   const level = Number(document.getElementById("level").value);
   hiddenByStep = new Map();
-
-  TOKENIZED.forEach(step => {
-    hiddenByStep.set(step.n, hiddenSetForLevel(step.tokens, level));
-  });
-
+  TOKENIZED.forEach(step => hiddenByStep.set(step.n, hiddenSetForLevel(step.tokens, level)));
   render();
 }
 
+// events
 document.getElementById("generate").addEventListener("click", generateHidden);
 document.getElementById("reroll").addEventListener("click", generateHidden);
-document.getElementById("reveal").addEventListener("click", () => {
-  revealAll = true;
-  render();
-});
+document.getElementById("reveal").addEventListener("click", () => { revealAll = true; render(); });
 
-// initial
-generateHidden();
+// ✅ default pre-generated + auto-regenerate when changing level
+document.getElementById("level").addEventListener("change", generateHidden);
+window.addEventListener("DOMContentLoaded", generateHidden);
 </script>
 </body>
 </html>
-
