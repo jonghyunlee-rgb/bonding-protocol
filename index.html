@@ -1,1 +1,286 @@
+Below is a single-file HTML web app that:
+	•	Shows the exact title from your picture (no questions asked).
+	•	Displays the same steps (1–15).
+	•	Colors red and purple text like your example.
+	•	Has difficulty levels LV1 / LV2 / LV3 that hide words while keeping the color styling.
 
+Copy into index.html and open in a browser.
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bonding Written Test</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 24px; }
+    h2 { margin: 0 0 14px; }
+
+    .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
+    select, button { padding: 8px 10px; border-radius: 10px; border: 1px solid #d0d0d0; background: white; }
+    button { cursor: pointer; }
+    .hint { opacity: 0.75; margin: 10px 0 14px; }
+
+    .list { max-width: 1100px; }
+    .step { display: flex; gap: 10px; line-height: 1.9; font-size: 1.05rem; margin: 6px 0; }
+    .num { width: 28px; text-align: right; opacity: 0.85; flex: 0 0 auto; }
+    .text { flex: 1; }
+
+    .red { color: #d5302c; font-weight: 600; }
+    .purple { color: #6a33c9; font-weight: 600; }
+
+    /* word tokens */
+    .w { padding: 2px 2px; border-radius: 6px; }
+    .hidden {
+      color: transparent !important;
+      background: #f2f2f2;
+      border: 1px solid #e0e0e0;
+      user-select: none;
+    }
+    .hidden::selection { background: transparent; }
+    .space { white-space: pre; }
+  </style>
+</head>
+
+<body>
+  <!-- Title: do not change -->
+  <h2>Steps in 4<sup>th</sup> generation bonding (Optibond FL&reg;)</h2>
+
+  <div class="controls">
+    <label for="level"><strong>Difficulty</strong></label>
+    <select id="level">
+      <option value="0">Show (no hiding)</option>
+      <option value="1">LV1: hide 3–4 words</option>
+      <option value="2">LV2: hide half the words</option>
+      <option value="3">LV3: only first word shows</option>
+    </select>
+
+    <button id="generate">Generate</button>
+    <button id="reroll">Reroll Hidden Words</button>
+    <button id="reveal">Reveal All</button>
+  </div>
+
+  <div class="hint">
+    Red = keywords/critical steps. Purple = rationale/understanding (as in your example).
+    (Clicking a hidden word reveals that one word.)
+  </div>
+
+  <div id="app" class="list"></div>
+
+<script>
+/**
+ * DATA (steps + coloring)
+ * Each step is made of "segments" with a class: red / purple / normal.
+ * We then split segments into word tokens so hiding works word-by-word while keeping color.
+ */
+const STEPS = [
+  { n: 1, segments: [
+    { cls: "red", text: "Etch all prepared enamel surfaces with 37.5% phosphoric acid for 20 seconds." },
+    { cls: "purple", text: " Etch beyond the finish line." },
+  ]},
+  { n: 2, segments: [
+    { cls: "red", text: "Rinse thoroughly with a " },
+    { cls: "purple", text: "3-way air/water syringe" },
+    { cls: "red", text: " for 20 seconds after all traces of the etchant disappear." },
+  ]},
+  { n: 3, segments: [
+    { cls: "purple", text: "3-way air/water syringe air dry the enamel to check for a frosty, white appearance to indicate proper enamel etching." },
+  ]},
+  { n: 4, segments: [
+    { cls: "red", text: "Etch all non-sclerotic dentin surfaces with 37.5% phosphoric acid for 5-10 seconds and all sclerotic dentin surfaces with 37.5% phosphoric acid for 15-20 seconds." },
+  ]},
+  { n: 5, segments: [
+    { cls: "red", text: "Rinse thoroughly for 20 seconds after all traces of the etchant disappear." },
+  ]},
+  { n: 6, segments: [
+    { cls: "red", text: "Aspirate the excess rinse water with high volume evacuation leaving a shiny, non-desiccated layer of dentin." },
+  ]},
+  { n: 7, segments: [
+    { cls: "normal", text: "Using a " },
+    { cls: "red", text: "Microbrush\u00AE," },
+    { cls: "red", text: " apply the primer with a gentle circular scrubbing motion in 4-5 overlapping coats for all dentin areas." },
+  ]},
+  { n: 8, segments: [
+    { cls: "red", text: "Aspirate with high volume evacuation for " },
+    { cls: "purple", text: "5 seconds to evaporate the solvent in the primer." },
+  ]},
+  { n: 9, segments: [
+    { cls: "red", text: "Using a new Microbrush\u00AE, apply the adhesive material" },
+    { cls: "purple", text: " in an even layer over all etched enamel and dentin. Be careful not to use an excessive amount." },
+  ]},
+  { n: 10, segments: [
+    { cls: "normal", text: "Use a light amount of high volume evacuation to thin the adhesive if you so desire. Eliminating this step has no detrimental effect on the outcome because this is a highly filled adhesive." },
+  ]},
+  { n: 11, segments: [
+    { cls: "purple", text: "Using a curing light, " },
+    { cls: "red", text: "cure the adhesive for 20 seconds per surface." },
+  ]},
+  { n: 12, segments: [
+    { cls: "purple", text: "Incrementally " },
+    { cls: "red", text: "add composite" },
+    { cls: "purple", text: " in layers up to 2 mm thick, sculpting and perfecting anatomy, surface, margins, and contours prior to light curing." },
+  ]},
+  { n: 13, segments: [
+    { cls: "red", text: "After curing the last increment, add a layer of glycerine gel" },
+    { cls: "purple", text: " over the surface to prevent any oxygen contact to the surface." },
+  ]},
+  { n: 14, segments: [
+    { cls: "purple", text: "Using a curing light, " },
+    { cls: "red", text: "cure through the glycerine gel for 10 seconds per surface" },
+    { cls: "purple", text: " to eliminate the oxygen-inhibited layer and completely harden the restoration\u2019s surface." },
+  ]},
+  { n: 15, segments: [
+    { cls: "red", text: "Contour and polish" },
+    { cls: "purple", text: " as necessary with appropriate rotary and other instruments." },
+  ]},
+];
+
+// --- helpers: tokenize while keeping class ---
+function splitToWordTokens(text) {
+  // Split into tokens including whitespace so we can keep spacing perfect.
+  // Example output: ["Etch", " ", "all", " ", "prepared", ...]
+  return text.split(/(\s+)/).filter(t => t.length > 0);
+}
+
+function buildTokensFromSteps(steps) {
+  // Returns: steps -> [{ n, tokens: [{t, cls, isSpace}...] }]
+  return steps.map(step => {
+    const tokens = [];
+    step.segments.forEach(seg => {
+      const parts = splitToWordTokens(seg.text);
+      parts.forEach(p => {
+        const isSpace = /^\s+$/.test(p);
+        tokens.push({ t: p, cls: seg.cls || "normal", isSpace });
+      });
+    });
+    return { n: step.n, tokens };
+  });
+}
+
+function sampleIndices(wordTokenIndices, k) {
+  const arr = [...wordTokenIndices];
+  // shuffle
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return new Set(arr.slice(0, Math.max(0, Math.min(k, arr.length))));
+}
+
+function hiddenSetForLevel(stepTokens, level) {
+  // We only hide non-space tokens
+  const wordIdx = [];
+  stepTokens.forEach((tok, idx) => { if (!tok.isSpace) wordIdx.push(idx); });
+
+  if (level === 0) return new Set();
+  if (wordIdx.length <= 1) return new Set(); // keep at least one visible
+
+  if (level === 3) {
+    // show only first visible word token of the entire step
+    const hidden = new Set();
+    const first = wordIdx[0];
+    wordIdx.forEach(i => { if (i !== first) hidden.add(i); });
+    return hidden;
+  }
+
+  if (level === 1) {
+    // hide 3-4 words, but never hide all
+    const maxHide = Math.max(0, wordIdx.length - 1);
+    const target = Math.min(maxHide, Math.min(4, Math.max(3, wordIdx.length)));
+    return sampleIndices(wordIdx, target);
+  }
+
+  if (level === 2) {
+    const maxHide = Math.max(0, wordIdx.length - 1);
+    const target = Math.min(maxHide, Math.floor(wordIdx.length / 2));
+    return sampleIndices(wordIdx, target);
+  }
+
+  return new Set();
+}
+
+// --- rendering ---
+let TOKENIZED = buildTokensFromSteps(STEPS);
+let hiddenByStep = new Map();
+let revealAll = false;
+
+function render() {
+  const app = document.getElementById("app");
+  app.innerHTML = "";
+
+  TOKENIZED.forEach(step => {
+    const row = document.createElement("div");
+    row.className = "step";
+
+    const num = document.createElement("div");
+    num.className = "num";
+    num.textContent = step.n + ".";
+    row.appendChild(num);
+
+    const text = document.createElement("div");
+    text.className = "text";
+
+    const hiddenSet = hiddenByStep.get(step.n) || new Set();
+
+    step.tokens.forEach((tok, idx) => {
+      if (tok.isSpace) {
+        const s = document.createElement("span");
+        s.className = "space";
+        s.textContent = tok.t;
+        text.appendChild(s);
+        return;
+      }
+
+      const w = document.createElement("span");
+      w.className = `w ${tok.cls}`;
+
+      const shouldHide = !revealAll && hiddenSet.has(idx);
+
+      if (shouldHide) {
+        w.classList.add("hidden");
+        w.textContent = "█".repeat(Math.max(2, tok.t.length));
+        w.title = "Click to reveal";
+        w.style.cursor = "pointer";
+        w.addEventListener("click", () => {
+          hiddenSet.delete(idx);
+          hiddenByStep.set(step.n, hiddenSet);
+          render();
+        });
+      } else {
+        w.textContent = tok.t;
+      }
+
+      text.appendChild(w);
+    });
+
+    row.appendChild(text);
+    app.appendChild(row);
+  });
+}
+
+function generateHidden() {
+  revealAll = false;
+  const level = Number(document.getElementById("level").value);
+  hiddenByStep = new Map();
+
+  TOKENIZED.forEach(step => {
+    hiddenByStep.set(step.n, hiddenSetForLevel(step.tokens, level));
+  });
+
+  render();
+}
+
+document.getElementById("generate").addEventListener("click", generateHidden);
+document.getElementById("reroll").addEventListener("click", generateHidden);
+document.getElementById("reveal").addEventListener("click", () => {
+  revealAll = true;
+  render();
+});
+
+// initial
+generateHidden();
+</script>
+</body>
+</html>
+
+If you want it even closer to a “test,” I can modify this so hidden words become input boxes and it grades you (70% vs 100% rules).
